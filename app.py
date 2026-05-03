@@ -5,29 +5,34 @@ import base64
 
 # --- CONFIGURACIÓN DE KIT ---
 NOMBRE_IA = "Kit"
-SISTEMA = f"Eres {NOMBRE_IA}, el colega tecnológico del usuario. Háblale de tú, sé informal y directo. Llama al usuario 'Jefe'."
+SISTEMA = f"Eres {NOMBRE_IA}, el colega tecnológico del usuario. Tienes visión. Analiza las fotos de forma informal y directa. Llama al usuario 'Jefe'."
 MI_LLAVE = "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".strip()
 
-st.set_page_config(page_title=NOMBRE_IA, page_icon="⚡")
+st.set_page_config(page_title=NOMBRE_IA, page_icon="⚡", layout="centered")
 st.title(f"⚡ {NOMBRE_IA} Vision OS")
 
 client = Groq(api_key=MI_LLAVE)
 
-# Inicializar el historial si no existe
+# Inicializar historial
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": SISTEMA}]
 
-# --- INTERRUPTOR DE CÁMARA ---
-st.sidebar.title("Configuración")
+# --- BARRA LATERAL ---
+st.sidebar.title("🛠️ Panel de Control")
 vision_activa = st.sidebar.toggle("Activar Sensores Visuales", value=False)
 
+if st.sidebar.button("🗑️ Borrar Memoria (Historial)"):
+    st.session_state.messages = [{"role": "system", "content": SISTEMA}]
+    st.rerun()
+
+# --- MODO VISIÓN (CÁMARA TRASERA) ---
 if vision_activa:
-    foto = st.camera_input("📸 Ojos de Kit")
+    # 'facing_mode="environment"' es lo que obliga al móvil a usar la cámara trasera
+    foto = st.camera_input("📸 Escaneando entorno...", facing_mode="environment")
     
     if foto:
         with st.spinner("Kit analizando..."):
             try:
-                # Procesar imagen
                 bytes_data = foto.getvalue()
                 base64_image = base64.b64encode(bytes_data).decode('utf-8')
                 
@@ -36,17 +41,22 @@ if vision_activa:
                     messages=[{
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": "Jefe, ya estoy mirando. ¿Qué ves de especial aquí?"},
+                            {"type": "text", "text": "Jefe, ya estoy mirando por la cámara trasera. ¿Qué me cuentas de esto?"},
                             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                         ]
                     }]
                 )
                 respuesta = res.choices[0].message.content
                 st.session_state.messages.append({"role": "assistant", "content": respuesta})
+                
+                # Audio para visión
+                limpio = respuesta.replace('"', '').replace('\n', ' ').replace("'", "")
+                js_vis = f"""<script>window.speechSynthesis.cancel(); var m=new SpeechSynthesisUtterance("{limpio}"); m.lang='es-ES'; m.pitch=0.75; window.speechSynthesis.speak(m);</script>"""
+                components.html(js_vis, height=0)
             except Exception as e:
                 st.error(f"Error de visión: {e}")
 
-# --- MOSTRAR HISTORIAL COMPLETO ---
+# --- HISTORIAL VISUAL ---
 for message in st.session_state.messages:
     if message["role"] != "system":
         with st.chat_message(message["role"], avatar="⚡" if message["role"]=="assistant" else None):
@@ -57,11 +67,10 @@ prompt = st.chat_input("Dime algo, Jefe...")
 
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
-    # Forzar refresco para mostrar el mensaje del usuario inmediatamente
     st.rerun()
 
-# Si el último mensaje es del usuario, generar respuesta de Kit
-if st.session_state.messages[-1]["role"] == "user":
+# Respuesta de texto si el último es del usuario
+if len(st.session_state.messages) > 1 and st.session_state.messages[-1]["role"] == "user":
     try:
         res = client.chat.completions.create(
             model="llama-3.1-8b-instant", 
@@ -70,20 +79,11 @@ if st.session_state.messages[-1]["role"] == "user":
         respuesta = res.choices[0].message.content
         st.session_state.messages.append({"role": "assistant", "content": respuesta})
         
-        # Audio automático para la última respuesta
+        # Audio para texto
         limpio = respuesta.replace('"', '').replace('\n', ' ').replace("'", "")
-        js_texto = f"""
-            <script>
-            window.speechSynthesis.cancel();
-            var msg = new SpeechSynthesisUtterance("{limpio}");
-            msg.lang = 'es-ES';
-            msg.pitch = 0.75; 
-            msg.rate = 1.0;  
-            window.speechSynthesis.speak(msg);
-            </script>
-        """
-        components.html(js_texto, height=0)
+        js_txt = f"""<script>window.speechSynthesis.cancel(); var m=new SpeechSynthesisUtterance("{limpio}"); m.lang='es-ES'; m.pitch=0.75; window.speechSynthesis.speak(m);</script>"""
+        components.html(js_txt, height=0)
         st.rerun()
     except Exception as e:
         st.error(f"Fallo en el procesador: {e}")
-        
+                
