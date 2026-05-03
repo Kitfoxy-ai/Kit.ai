@@ -50,17 +50,39 @@ if prompt:
             st.markdown(respuesta)
 
         # VOZ AUTOMÁTICA
+                # VOZ AUTOMÁTICA FORZADA (MASculino)
         limpio = respuesta.replace('"', '').replace('\n', ' ').replace("'", "")
         js_kit = f"""
             <script>
-            var msg = new SpeechSynthesisUtterance("{limpio}");
-            msg.lang = 'es-ES';
-            msg.pitch = 1.0; 
-            msg.rate = 1.1;  
-            window.speechSynthesis.speak(msg);
+            function hablar() {{
+                var msg = new SpeechSynthesisUtterance("{limpio}");
+                var voices = window.speechSynthesis.getVoices();
+
+                // Filtro para buscar una voz que NO sea femenina
+                var vozMasculina = voices.find(v => 
+                    (v.name.toLowerCase().includes('male') || 
+                     v.name.toLowerCase().includes('masculino') || 
+                     v.name.toLowerCase().includes('jorge') || 
+                     v.name.toLowerCase().includes('juan') || 
+                     v.name.toLowerCase().includes('espanya')) && 
+                    v.lang.includes('es')
+                );
+
+                if (vozMasculina) {{
+                    msg.voice = vozMasculina;
+                }}
+
+                msg.pitch = 0.8;  // Baja el tono para que suene más grave/masculino
+                msg.rate = 1.0;   // Velocidad normal
+                window.speechSynthesis.speak(msg);
+            }}
+
+            // Las voces tardan en cargar, este truco ayuda a que el código las encuentre
+            if (window.speechSynthesis.onvoiceschanged !== undefined) {{
+                window.speechSynthesis.onvoiceschanged = hablar;
+            }}
+            hablar();
             </script>
         """
         components.html(js_kit, height=0)
-    except Exception as e:
-        st.error(f"Oye Jefe, algo ha fallado con Groq: {e}")
-        
+            
