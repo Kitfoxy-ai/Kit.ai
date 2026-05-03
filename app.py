@@ -18,22 +18,17 @@ if "messages" not in st.session_state:
 
 # --- PANEL DE CONTROL LATERAL ---
 st.sidebar.title("🛠️ Sensores de Kit")
-opcion_camara = st.sidebar.radio(
-    "Selecciona Cámara:",
-    ("Apagada", "Cámara Frontal (Selfie)", "Cámara Trasera (Mundo)"),
-    index=0
-)
+vision_activa = st.sidebar.toggle("Encender Ojos de Kit", value=False)
 
 if st.sidebar.button("🗑️ Borrar Memoria"):
     st.session_state.messages = [{"role": "system", "content": SISTEMA}]
     st.rerun()
 
-# --- LÓGICA DE VISIÓN ---
-if opcion_camara != "Apagada":
-    # Configurar el modo según la elección
-    modo = "user" if opcion_camara == "Cámara Frontal (Selfie)" else "environment"
-    
-    foto = st.camera_input(f"📸 {opcion_camara} activa", facing_mode=modo)
+# --- LÓGICA DE VISIÓN (VERSION ESTABLE) ---
+if vision_activa:
+    # Hemos quitado 'facing_mode' para evitar el error de sistema
+    # El botón de girar cámara aparecerá solo en la interfaz de tu móvil
+    foto = st.camera_input("📸 Mirando entorno...")
     
     if foto:
         with st.spinner("Kit procesando imagen..."):
@@ -46,7 +41,7 @@ if opcion_camara != "Apagada":
                     messages=[{
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": "Jefe, ya veo. ¿Qué quieres que analice de lo que tengo delante?"},
+                            {"type": "text", "text": "Jefe, ya veo. ¿Qué quieres que analice?"},
                             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                         ]
                     }]
@@ -60,6 +55,8 @@ if opcion_camara != "Apagada":
                 components.html(js_vis, height=0)
             except Exception as e:
                 st.error(f"Error de visión: {e}")
+else:
+    st.info("Cámara apagada. Actívala en el menú lateral para que Kit pueda ver.")
 
 # --- HISTORIAL Y CHAT ---
 for message in st.session_state.messages:
@@ -85,4 +82,4 @@ if len(st.session_state.messages) > 1 and st.session_state.messages[-1]["role"] 
         st.rerun()
     except Exception as e:
         st.error(f"Fallo en el procesador: {e}")
-                
+        
