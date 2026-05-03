@@ -36,50 +36,55 @@ if prompt:
         st.markdown(prompt)
 
     try:
-        # Petición a Groq con el modelo estable
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant", 
             messages=st.session_state.messages
         )
         
-        # Acceso correcto a la respuesta
         respuesta = completion.choices[0].message.content
         st.session_state.messages.append({"role": "assistant", "content": respuesta})
         
         with st.chat_message("assistant", avatar="⚡"):
             st.markdown(respuesta)
 
-        # --- VOZ AUTOMÁTICA REFORZADA (ESTILO KIT) ---
+        # --- VOZ MASCULINA FORZADA ---
         limpio = respuesta.replace('"', '').replace('\n', ' ').replace("'", "")
         js_kit = f"""
             <script>
             function hablar() {{
-                window.speechSynthesis.cancel(); // Limpia voces anteriores
+                window.speechSynthesis.cancel();
                 var msg = new SpeechSynthesisUtterance("{limpio}");
                 var voices = window.speechSynthesis.getVoices();
 
-                // Intentamos encontrar una voz masculina (Jorge, Juan, etc.)
+                // Intentamos encontrar una voz que sea explícitamente masculina o de hombre
                 var vozMasculina = voices.find(v => 
                     (v.name.toLowerCase().includes('jorge') || 
                      v.name.toLowerCase().includes('juan') || 
-                     v.name.toLowerCase().includes('male') || 
-                     v.name.toLowerCase().includes('masculino')) && 
+                     v.name.toLowerCase().includes('david') || 
+                     v.name.toLowerCase().includes('paul') || 
+                     v.name.toLowerCase().includes('male')) && 
                     v.lang.includes('es')
                 );
+
+                // Si no encuentra ninguna por nombre, filtramos las que NO queremos (mujeres)
+                if (!vozMasculina) {{
+                    vozMasculina = voices.find(v => 
+                        v.lang.includes('es') && 
+                        !v.name.toLowerCase().includes('helena') && 
+                        !v.name.toLowerCase().includes('laura') && 
+                        !v.name.toLowerCase().includes('google')
+                    );
+                }}
 
                 if (vozMasculina) {{
                     msg.voice = vozMasculina;
                 }}
 
-                // Ajustes para el efecto Jarvis/Kit
-                msg.pitch = 0.75; // Tono más grave (0.1 a 2)
-                msg.rate = 1.0;   // Velocidad (0.1 a 10)
-                msg.volume = 1.0;
-                
+                msg.pitch = 0.7; // Muy grave para forzar masculinidad
+                msg.rate = 1.0;
                 window.speechSynthesis.speak(msg);
             }}
 
-            // Control de carga de voces en navegadores móviles
             if (window.speechSynthesis.getVoices().length === 0) {{
                 window.speechSynthesis.onvoiceschanged = hablar;
             }} else {{
@@ -91,4 +96,3 @@ if prompt:
 
     except Exception as e:
         st.error(f"Oye Jefe, algo ha fallado con Groq: {e}")
-    
