@@ -16,24 +16,27 @@ client = Groq(api_key=MI_LLAVE)
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": SISTEMA}]
 
-# --- BARRA LATERAL ---
-st.sidebar.title("🛠️ Panel de Control")
-vision_activa = st.sidebar.toggle("Activar Sensores Visuales", value=False)
+# --- PANEL DE CONTROL LATERAL ---
+st.sidebar.title("🛠️ Sensores de Kit")
+opcion_camara = st.sidebar.radio(
+    "Selecciona Cámara:",
+    ("Apagada", "Cámara Frontal (Selfie)", "Cámara Trasera (Mundo)"),
+    index=0
+)
 
 if st.sidebar.button("🗑️ Borrar Memoria"):
     st.session_state.messages = [{"role": "system", "content": SISTEMA}]
     st.rerun()
 
-# --- MODO VISIÓN ---
-if vision_activa:
-    # Si da error el facing_mode, usamos el modo normal
-    try:
-        foto = st.camera_input("📸 Escaneando entorno...", facing_mode="environment")
-    except:
-        foto = st.camera_input("📸 Escaneando entorno...")
+# --- LÓGICA DE VISIÓN ---
+if opcion_camara != "Apagada":
+    # Configurar el modo según la elección
+    modo = "user" if opcion_camara == "Cámara Frontal (Selfie)" else "environment"
+    
+    foto = st.camera_input(f"📸 {opcion_camara} activa", facing_mode=modo)
     
     if foto:
-        with st.spinner("Kit analizando..."):
+        with st.spinner("Kit procesando imagen..."):
             try:
                 bytes_data = foto.getvalue()
                 base64_image = base64.b64encode(bytes_data).decode('utf-8')
@@ -43,7 +46,7 @@ if vision_activa:
                     messages=[{
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": "Jefe, ya estoy mirando. ¿Qué me cuentas de esto?"},
+                            {"type": "text", "text": "Jefe, ya veo. ¿Qué quieres que analice de lo que tengo delante?"},
                             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                         ]
                     }]
@@ -51,19 +54,19 @@ if vision_activa:
                 respuesta = res.choices[0].message.content
                 st.session_state.messages.append({"role": "assistant", "content": respuesta})
                 
+                # Audio para visión
                 limpio = respuesta.replace('"', '').replace('\n', ' ').replace("'", "")
                 js_vis = f"""<script>window.speechSynthesis.cancel(); var m=new SpeechSynthesisUtterance("{limpio}"); m.lang='es-ES'; m.pitch=0.75; window.speechSynthesis.speak(m);</script>"""
                 components.html(js_vis, height=0)
             except Exception as e:
                 st.error(f"Error de visión: {e}")
 
-# --- HISTORIAL ---
+# --- HISTORIAL Y CHAT ---
 for message in st.session_state.messages:
     if message["role"] != "system":
         with st.chat_message(message["role"], avatar="⚡" if message["role"]=="assistant" else None):
             st.markdown(message["content"])
 
-# --- CHAT ---
 prompt = st.chat_input("Dime algo, Jefe...")
 
 if prompt:
@@ -72,10 +75,7 @@ if prompt:
 
 if len(st.session_state.messages) > 1 and st.session_state.messages[-1]["role"] == "user":
     try:
-        res = client.chat.completions.create(
-            model="llama-3.1-8b-instant", 
-            messages=st.session_state.messages
-        )
+        res = client.chat.completions.create(model="llama-3.1-8b-instant", messages=st.session_state.messages)
         respuesta = res.choices[0].message.content
         st.session_state.messages.append({"role": "assistant", "content": respuesta})
         
