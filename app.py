@@ -68,12 +68,14 @@ with tab_vision:
     st.subheader("Ojos de Kit")
     foto = st.camera_input("Capturar entorno")
     if foto:
-        with st.spinner("Kit analizando..."):
+        with st.spinner("Kit analizando con sensor de alta potencia..."):
             try:
                 bytes_data = foto.getvalue()
                 base64_image = base64.b64encode(bytes_data).decode('utf-8')
+                
+                # CAMBIO AQUÍ: Usamos el modelo de 90b que es el que Groq mantiene activo
                 res = client.chat.completions.create(
-                    model="llama-3.2-11b-vision-preview",
+                    model="llama-3.2-90b-vision-preview",
                     messages=[{"role": "user", "content": [
                         {"type": "text", "text": "Jefe, analiza esto rápido."},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
@@ -85,7 +87,7 @@ with tab_vision:
                 
                 limpio = respuesta.replace('"', '').replace('\n', ' ').replace("'", "")
                 components.html(f'<script>window.speechSynthesis.cancel(); var m=new SpeechSynthesisUtterance("{limpio}"); m.lang="es-ES"; m.pitch=0.75; window.speechSynthesis.speak(m);</script>', height=0)
-                st.success("Imagen analizada. Mira el historial en la pestaña Chat.")
+                st.success("Análisis completado. Mira la pestaña Chat.")
             except Exception as e:
                 st.error(f"Error de visión: {e}")
 
@@ -97,14 +99,12 @@ with tab_chat:
             with st.chat_message(message["role"], avatar="⚡" if message["role"]=="assistant" else None):
                 st.markdown(message["content"])
 
-    # Entrada de texto
     prompt = st.chat_input("Escribe algo, Jefe...")
     if prompt:
         st.session_state.todos_los_chats[st.session_state.chat_actual].append({"role": "user", "content": prompt})
         guardar_chats(st.session_state.todos_los_chats)
         st.rerun()
 
-    # Respuesta automática si el último es del usuario
     if mensajes_actuales[-1]["role"] == "user":
         try:
             res = client.chat.completions.create(model="llama-3.1-8b-instant", messages=mensajes_actuales)
@@ -117,3 +117,4 @@ with tab_chat:
             st.rerun()
         except Exception as e:
             st.error(f"Fallo en el procesador: {e}")
+            
